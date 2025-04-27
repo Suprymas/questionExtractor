@@ -8,25 +8,35 @@ import io
 import re
 
 # ---------------------
-APP_ID = "oba"
-APP_KEY = "apsipisk"
-PDF_FILE = "VBE_Fizika_2024_Pagrindine.pdf"
-OUTPUT_EXCEL = "Parsed_Questions.xlsx"
-ANSWER_FILE = "2024_FIZ_VBE_PG.pdf"
+APP_ID = "cogi_8c4873_400d66"
+APP_KEY = "0507005f44f53d858ad638f1e344a319ac1535980230ef253d58320ec770a090"
+PDF_FILE = "egzai/2009.pdf"
+OUTPUT_EXCEL = "surinkti/2009.xlsx"
+ANSWER_FILE = "egzai/2009_ats.pdf"
 # ---------------------
 
 # Fix OCR misrecognized characters
 char_fixes = {
     'è': 'ė', 'ė̀': 'ė', 'ė́': 'ė', 'ė̃': 'ė', 'ě':'ė' ,
-    'õ': 'o', 'ì': 'i', 'ị': 'į', 'í': 'i', 'í̇': 'i',
+    'õ': 'o', 'ì': 'i', 'ị': 'į', 'í': 'i', 'í̇': 'i', 'ı':'i',
     'į̇': 'į', 'İ': 'į', 'ù': 'u', 'ū̀': 'ū', 'û': 'u',
-    'ñ': 'n', 'č́': 'č', 'š́': 'š', 'ž́': 'ž', 'à': 'a',
-    'é': 'ė', 'ẻ': 'ė',
-    'ivair': 'įvair'
+    'ñ': 'n', 'č́': 'č', 'š́': 'š', 'ž́': 'ž', 'à': 'a', 'a̧': 'ą',
+    'é': 'ė', 'ẻ': 'ė', 'ư': 'ų', 'Icentr':'Įcentr', 'ụ':'ų', 'ittempis' : 'įtempis',
+    'ivair': 'įvair', '$${ }^{1}$$': '', '$${ }^{2}$$': '', '$${ }^{3}$$': '',
+    'ijungiami': 'įjungiami', "It ": "Į", 'ú': 'ų', 'ş':'š', 'igyja':'įgyja', 'ittempimo':'įtempimo'
+}
+category_map = {
+    "Mechanika": 18,
+    "Molekulinė fizika": 19,
+    "Elektrodinamika": 20,
+    "Svyravimai ir bangos": 21,
+    "Modernioji fizika": 22,
+    "Astronomija": 23,
 }
 
 skip_keywords = [
-    "žr. pav", "pav.", "paveiksl", "Paveiksl", "lentelė", "1 pav", "2 pav", "3 pav", "pavaizduot", " eiga", "sujungt", "Sinusai"
+    "žr. pav", "pav.", "paveiksl", "Paveiksl", "lentel", "1 pav", "2 pav", "3 pav", "pavaizduot", " eiga", "Sinusai",
+    "Grafik", "grafik", "tašką O", "Taške", "taške",
 ]
 
 def get_mcq_answers(pdf_path):
@@ -82,22 +92,44 @@ def save_pdf_pages_as_images(pdf_path, output_folder="ocr_pages", zoom=2.0):
     doc = pymupdf.open(pdf_path)
     image_paths = []
 
-    for page_num in range(1, 7):  # Customize page range
+    for page_num in range(2, 9):  # Customize page range
         page = doc.load_page(page_num)
         mat = pymupdf.Matrix(zoom, zoom)
         pix = page.get_pixmap(matrix=mat)
         img = Image.open(io.BytesIO(pix.tobytes("png")))
         width, height = img.size
-        cropped_img = img.crop((0, 165, width, height - 180))  # crop top/bottom
+        cropped_img = img.crop((100, 165, width, height - 180))  # crop top/bottom
         image_path = os.path.join(output_folder, f"page_{page_num+1}.png")
         cropped_img.save(image_path)
         image_paths.append(image_path)
 
     return image_paths
+def assign_categories(text):
+    current_category = 18  # Assume "Judėjimas ir jėgos" at the start
+    q_to_category = {}
+
+    lines = text.splitlines()
+
+    for line in lines:
+        line = line.strip()
+        cleaned_line = clean_text(line)
+
+        if cleaned_line in category_map:
+            current_category = category_map[cleaned_line]
+
+        match = re.match(r"^(\d{2})\.", line)
+        if match and current_category is not None:
+            question_num = match.group(1)
+            q_to_category[question_num] = current_category
+
+    return q_to_category
+
+
 
 # === OCR all pages ===
 print("🔄 Converting PDF to images...")
 image_paths = save_pdf_pages_as_images(PDF_FILE)
+
 
 print("📤 Sending images to Mathpix...")
 all_text = ""
@@ -115,54 +147,63 @@ with open("output.txt", "w", encoding="utf-8") as f:
 # === Extract questions ===
 print("🧠 Parsing questions...")
 
-pattern = re.compile(r"(?P<num>\d{2})\.\s(?P<question>.+?)(?=\nA\s)", flags=re.DOTALL)
-question_dict = {match[0]: match[1] for match in pattern.findall(all_text)}
 
-options_pattern = re.compile(
-    r"(?P<num>\d{2})\.\s.*?A\s(?P<A>.+?)\sB\s(?P<B>.+?)\sC\s(?P<C>.+?)\sD\s(?P<D>.+?)(?=(\n\d{2}\.|$))",
-    flags=re.DOTALL
-)
 
 answer_key = get_mcq_answers(ANSWER_FILE)
+category_per_question = assign_categories(all_text)
+# After assigning categories
+for category in category_map:
+    all_text = all_text.replace(clean_text(category), "")
 
+
+
+question_blocks = re.split(r"(?=\d{2}\.\s)", all_text)
 
 data = []
-for match in options_pattern.finditer(all_text):
+
+for block in question_blocks:
+    block = block.strip()
+    if not block:
+        continue
+
+    match = re.match(r"(?P<num>\d{2})\.\s(?P<question>.+?)(?=(\nA\s|$))", block, flags=re.DOTALL)
+    if not match:
+        continue
+
     q = match.groupdict()
     question_number = q["num"]
-    raw_question_text = question_dict.get(question_number)
+    raw_question_text = clean_text(re.sub(r"\s+", " ", q["question"].strip()))
 
-    if not raw_question_text:
-        print(f"⚠️  Skipping question {question_number} — no matching question text found")
+    if any(keyword in raw_question_text.lower() for keyword in skip_keywords):
+        print(f"⏭ Skipping question {question_number} due to image/table reference")
         continue
 
-    cleaned_question_text = clean_text(re.sub(r"\s+", " ", raw_question_text.strip()))
+    # 🧠 Now extract options manually
+    options = re.findall(r"(?:^|\n)([A-D])\s+(.*?)(?=(?:\n[A-D]\s|$))", block, flags=re.DOTALL)
 
-    if any(keyword in cleaned_question_text.lower() for keyword in skip_keywords):
-        print(f"⏭ Skipping question {q['num']} due to image/table reference")
+    if len(options) < 4:
+        print(f"⚠️ Skipping question {question_number} — not enough options found ({len(options)}).")
         continue
 
-    correct_letter = answer_key.get(q["num"], "")
+    options_dict = {letter: clean_text(text.strip()) for letter, text in options}
 
-    options = {
-        "A": clean_text(q["A"].strip()),
-        "B": clean_text(q["B"].strip()),
-        "C": clean_text(q["C"].strip()),
-        "D": clean_text(q["D"].strip()),
-    }
-    correct_answer = options.get(correct_letter, "")
-    wrong_answers = [ans for key, ans in options.items() if key != correct_letter]
+    correct_letter = answer_key.get(question_number, "")
+    correct_answer = options_dict.get(correct_letter, "")
+    wrong_answers = [ans for key, ans in options_dict.items() if key != correct_letter]
+
     while len(wrong_answers) < 3:
         wrong_answers.append("")
 
     data.append({
-        "Question No.": q["num"],
-        "Question": cleaned_question_text,
+        "Question No.": question_number,
+        "Category No.": category_per_question.get(question_number, ""),
+        "Question": raw_question_text,
         "Correct Answer": correct_answer,
         "Wrong Option 1": wrong_answers[0],
         "Wrong Option 2": wrong_answers[1],
         "Wrong Option 3": wrong_answers[2],
     })
+
 
 # === Save to Excel ===
 df = pd.DataFrame(data)
