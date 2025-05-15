@@ -8,8 +8,8 @@ import io
 import re
 
 # ---------------------
-APP_ID = "cogi_8c4873_400d66"
-APP_KEY = "0507005f44f53d858ad638f1e344a319ac1535980230ef253d58320ec770a090"
+APP_ID = "oops"
+APP_KEY = "oops"
 PDF_FILE = "egzai/2009.pdf"
 OUTPUT_EXCEL = "surinkti/2009.xlsx"
 ANSWER_FILE = "egzai/2009_ats.pdf"
