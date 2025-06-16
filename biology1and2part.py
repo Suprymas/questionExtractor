@@ -3,15 +3,16 @@ import pandas as pd
 import re
 
 # ---------------------
-PDF_FILE = "egzai/2020.pdf"
-ANSWER_FILE = "egzai/2020_ats.pdf"
-OUTPUT_EXCEL = "surinkti/2020.xlsx"
-REMOVE = "201BIVU0"
+PDF_FILE = "egzai/2019.pdf"
+ANSWER_FILE = "egzai/2019_ats.pdf"
+OUTPUT_EXCEL = "surinkti/2019.xlsx"
+REMOVE = "101BIVU0"
+LASTPAGE = 8
 # ---------------------
 
 skip_keywords = [
     "žr. pav", "pav.", "paveiksl", "Paveiksl", "lentel", "pavaizduot", "eiga",
-    "Grafik", "grafik", "tašką", "šaltinis", "schema", "nuotraukoje", "lentelėje", "Schemoje", "schemoje"
+    "Grafik", "grafik", "tašką", "šaltinis", "schema", "nuotraukoje", "lentelėje", "Schemoje", "schemoje", "diagrama", "pažymėta"
 ]
 
 # Category mapping based on keyword fragments
@@ -61,6 +62,9 @@ def remove_header_footer_noise(text):
 
     text = text.replace(REMOVE, '')
     text = text.replace("Juodraštis", '')
+    text = text.replace("2010 M. BIOLOGIJOS VALSTYBINIO BRANDOS EGZAMINO UŽDUOTIS ", '')
+    text = text.replace("B",'')
+    text = text.replace("*", '')
     # Remove excess blank lines
     text = re.sub(r'\n\s*\n+', '\n\n', text)
 
@@ -104,7 +108,7 @@ def get_mcq_answers(pdf_path):
             answer = re.sub(r'\s+', ' ', match.group("answer").strip())
             part2_answers[num] = answer
 
-    print(f"✅ Found {len(mcq_answers)} MCQ answers and {len(part2_answers)} open-ended answers.")
+    print(f" Found {len(mcq_answers)} MCQ answers and {len(part2_answers)} open-ended answers.")
     return mcq_answers, part2_answers
 
 
@@ -115,7 +119,7 @@ def extract_open_questions_from_part_ii(text):
     # Locate start of Part II
     match = re.search(r"II dalis.*?tašku\.", text, flags=re.IGNORECASE | re.DOTALL)
     if not match:
-        print("⚠️ Could not locate Part II")
+        print("️ Could not locate Part II")
         return open_questions
 
     part2_text_local = text[match.end():]
@@ -138,13 +142,13 @@ def extract_open_questions_from_part_ii(text):
 
         num = match_local.group("num")
         if num == "0":
-            print("⚠️ Detected question number 0 — correcting to 10")
+            print(" Detected question number 0 — correcting to 10")
             num = "10"
         qtext = re.sub(r'\s+', ' ', match_local.group("question")).strip()
 
         # Skip if it contains image/table indicators
         if any(kw in qtext.lower() for kw in skip_keywords):
-            print(f"⏭ Skipping Part II Q{num} — image or diagram referenced")
+            print(f" Skipping Part II Q{num} — image or diagram referenced")
             continue
 
         open_questions.append({
@@ -162,7 +166,7 @@ def extract_open_questions_from_part_ii(text):
 
 
 
-def extract_clean_text_from_pdf(pdf_path, start_page=2, end_page=7):
+def extract_clean_text_from_pdf(pdf_path, start_page=2, end_page=LASTPAGE):
     doc = pymupdf.open(pdf_path)
     text = "\n".join(doc[i].get_text() for i in range(start_page - 1, end_page))
     # Remove common headers/footers
@@ -176,7 +180,7 @@ def extract_clean_text_from_pdf(pdf_path, start_page=2, end_page=7):
 
 
 # === Main workflow ===
-print("📄 Reading exam content from PDF...")
+print(" Reading exam content from PDF...")
 raw_text = extract_clean_text_from_pdf(PDF_FILE)
 raw_text = remove_header_footer_noise(raw_text)
 with open("output.txt", "w", encoding="utf-8") as f:
@@ -185,14 +189,14 @@ with open("output.txt", "w", encoding="utf-8") as f:
 print("getting answers...")
 mcq_answers, open_answers = get_mcq_answers(ANSWER_FILE)
 
-print("🔍 Parsing questions...")
+print(" Parsing questions...")
 part1_text, part2_text = raw_text, ""
 split_match = re.search(r"\bII dalis\b", raw_text, flags=re.IGNORECASE)
 if split_match:
     part1_text = raw_text[:split_match.start()]
     part2_text = raw_text[split_match.start():]
 else:
-    print("⚠️ Could not find 'II dalis'. Using full text as Part I.")
+    print(" Could not find 'II dalis'. Using full text as Part I.")
 
 question_blocks = re.split(r"(?=\d{2}\.\s)", part1_text)
 
@@ -215,14 +219,14 @@ for block in question_blocks:
     question_text = re.sub(r"\s+", " ", q["question"].strip())
 
     if any(kw in question_text.lower() for kw in skip_keywords):
-        print(f"⏭ Skipping {qnum} (image-based)")
+        print(f" Skipping {qnum} (image-based)")
         continue
 
 
     options = re.findall(r"(?:^|\n)([A-D])\s+(.*?)(?=(?:\n[A-D]\s|$))", block, flags=re.DOTALL)
 
     if len(options) < 4:
-        print(f"⚠️ Skipping question {qnum} — not enough options found ({len(options)}).")
+        print(f" Skipping question {qnum} — not enough options found ({len(options)}).")
         continue
 
     options_dict = {letter: text.strip() for letter, text in options}
@@ -248,7 +252,7 @@ for block in question_blocks:
     })
 
 
-print("📘 Extracting open-ended questions from Part II...")
+print(" Extracting open-ended questions from Part II...")
 open_questions = extract_open_questions_from_part_ii(raw_text)
 
 
@@ -269,7 +273,7 @@ combined_df = pd.concat([mcq_df, open_df], ignore_index=True)
 combined_df["Question No."] = combined_df["Question No."].astype(str).str.zfill(2)
 
 # === Export to Excel ===
-print(f"💾 Saving {len(combined_df)} questions to Excel...")
+print(f" Saving {len(combined_df)} questions to Excel...")
 df = pd.DataFrame(combined_df)
 df.to_excel(OUTPUT_EXCEL, index=False)
-print(f"✅ Done! File saved to: {OUTPUT_EXCEL}")
+print(f" Done! File saved to: {OUTPUT_EXCEL}")

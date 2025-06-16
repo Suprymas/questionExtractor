@@ -127,14 +127,14 @@ def assign_categories(text):
 
 
 # === OCR all pages ===
-print("🔄 Converting PDF to images...")
+print(" Converting PDF to images...")
 image_paths = save_pdf_pages_as_images(PDF_FILE)
 
 
 print("📤 Sending images to Mathpix...")
 all_text = ""
 for idx, img_path in enumerate(image_paths):
-    print(f"  → Processing page {idx + 2}...")
+    print(f"   Processing page {idx + 2}...")
     ocr_result = image_to_latex(img_path, APP_ID, APP_KEY)
     text_block = ocr_result.get("text", "")
     all_text += "\n" + ocr_result.get("text", "")
@@ -145,7 +145,7 @@ all_text = re.sub(r'\n+', '\n', all_text)
 with open("output.txt", "w", encoding="utf-8") as f:
     f.write(all_text.strip())
 # === Extract questions ===
-print("🧠 Parsing questions...")
+print(" Parsing questions...")
 
 
 
@@ -209,4 +209,4 @@ for block in question_blocks:
 df = pd.DataFrame(data)
 df.to_excel(OUTPUT_EXCEL, index=False)
 
-print(f"✅ {len(data)} questions saved to: {OUTPUT_EXCEL}")
+print(f" {len(data)} questions saved to: {OUTPUT_EXCEL}")
