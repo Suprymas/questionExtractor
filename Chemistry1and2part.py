@@ -1,20 +1,20 @@
-import pymupdf  # PyMuPDF
+import pymupdf
 import pandas as pd
 import re
-import os
+
 
 # ---------------------
-PDF_FILE = "egzai/Chem/2024p.pdf"
-ANSWER_FILE = "egzai/Chem/2024p_ats.pdf"
-OUTPUT_EXCEL = "surinkti/Chem/2024p.xlsx"
-REMOVE = "242CHVU0"
-LASTPAGE = 11
-questionNum = 1314
+PDF_FILE = "egzai/Chem/2017.pdf"
+ANSWER_FILE = "egzai/Chem/2017_ats.pdf"
+OUTPUT_EXCEL = "surinkti/Chem/2017.xlsx"
+REMOVE = "171CHVU0"
+LASTPAGE = 10
+questionNum = 1658
 # ---------------------
 
 
 image_keywords = [
-    "žr. pav", "pav.", "paveiksl", "Paveiksl", "lentel", "pavaizduot", "eiga", "piktograma",
+    "žr. pav", "pav.", "paveiksl", "Paveiksl", "lentel", "pavaizduot", "eiga", "piktogram",
     "Grafik", "grafik", "tašką", "šaltinis", "schema", "nuotraukoje", "lentelėje", "Schemoje", "schemoje", "diagrama", "pažymėta"
 ]
 
@@ -43,7 +43,7 @@ def remove_header_footer_noise(text):
 
     text = text.replace(REMOVE, '')
     text = text.replace("Juodraštis", '')
-    text = text.replace("2024 M. CHEMIJOS VALSTYBINIO BRANDOS EGZAMINO UŽDUOTIS ", '')
+    text = text.replace("2017 M. CHEMIJOS VALSTYBINIO BRANDOS EGZAMINO UŽDUOTIS ", '')
     text = text.replace('Ats.:', '')
     text = text.replace('      ml', '')
     text = text.replace('      %', '')
@@ -212,9 +212,9 @@ for block in question_blocks:
             "Category": "",
             "Question": question_text,
             "Correct Answer": mcq_answers.get(qnum, ""),
-            "Wrong Option 1": "",
-            "Wrong Option 2": "",
-            "Wrong Option 3": "",
+            "Wrong Option 1": "https://exvpdduqmfmvkvpmbpvp.supabase.co/storage/v1/object/public/task-pictures//" + str(questionNum) + "-2.png",
+            "Wrong Option 2": "https://exvpdduqmfmvkvpmbpvp.supabase.co/storage/v1/object/public/task-pictures//" + str(questionNum) + "-3.png",
+            "Wrong Option 3": "https://exvpdduqmfmvkvpmbpvp.supabase.co/storage/v1/object/public/task-pictures//" + str(questionNum) + "-4.png",
             "fa_check": "FALSE",
             "image": "",
             "tempNum": qnum
